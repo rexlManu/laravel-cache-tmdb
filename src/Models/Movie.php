@@ -18,6 +18,7 @@ use Astrotomic\Tmdb\Requests\Movie\TopRated;
 use Astrotomic\Tmdb\Requests\Movie\Trending;
 use Astrotomic\Tmdb\Requests\Movie\Upcoming;
 use Astrotomic\Tmdb\Requests\Movie\WatchProviders;
+use Astrotomic\Tmdb\Requests\Search\SearchMovie;
 use Carbon\CarbonInterval;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -117,11 +118,21 @@ class Movie extends Model
         'homepage',
     ];
 
+    public static function search(string $query, ?int $limit, bool $includeAdult = false, string $primaryReleaseYear = null, string $year = null, string $region = null)
+    {
+        $ids = (new SearchMovie(query: $query, includeAdult: $includeAdult, primary_release_year: $primaryReleaseYear, year: $year, region: $region))
+            ->cursor()
+            ->when($limit, fn(LazyCollection $collection) => $collection->take($limit))
+            ->pluck('id');
+
+        return static::query()->findMany($ids);
+    }
+
     public static function popular(?int $limit): EloquentCollection
     {
         $ids = Popular::request()
             ->cursor()
-            ->when($limit, fn (LazyCollection $collection) => $collection->take($limit))
+            ->when($limit, fn(LazyCollection $collection) => $collection->take($limit))
             ->pluck('id');
 
         return static::query()->findMany($ids);
@@ -131,7 +142,7 @@ class Movie extends Model
     {
         $ids = TopRated::request()
             ->cursor()
-            ->when($limit, fn (LazyCollection $collection) => $collection->take($limit))
+            ->when($limit, fn(LazyCollection $collection) => $collection->take($limit))
             ->pluck('id');
 
         return static::query()->findMany($ids);
@@ -141,7 +152,7 @@ class Movie extends Model
     {
         $ids = Upcoming::request()
             ->cursor()
-            ->when($limit, fn (LazyCollection $collection) => $collection->take($limit))
+            ->when($limit, fn(LazyCollection $collection) => $collection->take($limit))
             ->pluck('id');
 
         return static::query()->findMany($ids);
@@ -151,7 +162,7 @@ class Movie extends Model
     {
         $ids = Trending::request(window: $window)
             ->cursor()
-            ->when($limit, fn (LazyCollection $collection) => $collection->take($limit))
+            ->when($limit, fn(LazyCollection $collection) => $collection->take($limit))
             ->pluck('id');
 
         return static::query()->findMany($ids);
@@ -227,7 +238,7 @@ class Movie extends Model
     public function updateFromTmdb(?string $locale = null, array $with = []): bool
     {
         $append = collect($with)
-            ->map(fn (string $relation) => match ($relation) {
+            ->map(fn(string $relation) => match ($relation) {
                 'cast', 'crew', 'credits' => Details::APPEND_CREDITS,
                 default => null,
             })
@@ -237,7 +248,7 @@ class Movie extends Model
             ->all();
 
         $data = rescue(
-            fn () => Details::request($this->id)
+            fn() => Details::request($this->id)
                 ->language($locale)
                 ->append(...$append)
                 ->send()
@@ -320,7 +331,7 @@ class Movie extends Model
     {
         $ids = Recommendations::request($this->id)
             ->cursor()
-            ->when($limit, fn (LazyCollection $collection) => $collection->take($limit))
+            ->when($limit, fn(LazyCollection $collection) => $collection->take($limit))
             ->pluck('id');
 
         return static::query()->findMany($ids);
@@ -330,7 +341,7 @@ class Movie extends Model
     {
         $ids = Similars::request($this->id)
             ->cursor()
-            ->when($limit, fn (LazyCollection $collection) => $collection->take($limit))
+            ->when($limit, fn(LazyCollection $collection) => $collection->take($limit))
             ->pluck('id');
 
         return static::query()->findMany($ids);
@@ -340,6 +351,7 @@ class Movie extends Model
     {
         return $this->watchProviders;
     }
+
     public function watchProviders(?string $region = null, ?WatchProviderType $type = null): EloquentCollection
     {
         return WatchProvider::query()->findMany(

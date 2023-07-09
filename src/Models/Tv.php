@@ -12,6 +12,8 @@ use Astrotomic\Tmdb\Enums\WatchProviderType;
 use Astrotomic\Tmdb\Images\Backdrop;
 use Astrotomic\Tmdb\Images\Poster;
 use Astrotomic\Tmdb\Models\Concerns\HasTranslations;
+use Astrotomic\Tmdb\Requests\Search\SearchMovie;
+use Astrotomic\Tmdb\Requests\Search\SearchTV;
 use Astrotomic\Tmdb\Requests\Tv\Details;
 use Astrotomic\Tmdb\Requests\Tv\Recommendations;
 use Astrotomic\Tmdb\Requests\Tv\Similars;
@@ -95,11 +97,21 @@ class Tv extends Model
         'homepage',
     ];
 
+    public static function search(string $query, ?int $limit, bool $includeAdult = false, string $first_air_date_year = null, string $year = null)
+    {
+        $ids = (new SearchTV(query: $query, includeAdult: $includeAdult, first_air_date_year: $first_air_date_year, year: $year))
+            ->cursor()
+            ->when($limit, fn(LazyCollection $collection) => $collection->take($limit))
+            ->pluck('id');
+
+        return static::query()->findMany($ids);
+    }
+
     public static function popular(?int $limit): EloquentCollection
     {
         $ids = Popular::request()
             ->cursor()
-            ->when($limit, fn (LazyCollection $collection) => $collection->take($limit))
+            ->when($limit, fn(LazyCollection $collection) => $collection->take($limit))
             ->pluck('id');
 
         return static::query()->findMany($ids);
@@ -109,7 +121,7 @@ class Tv extends Model
     {
         $ids = TopRated::request()
             ->cursor()
-            ->when($limit, fn (LazyCollection $collection) => $collection->take($limit))
+            ->when($limit, fn(LazyCollection $collection) => $collection->take($limit))
             ->pluck('id');
 
         return static::query()->findMany($ids);
@@ -221,7 +233,7 @@ class Tv extends Model
             ->all();*/
 
         $data = rescue(
-            fn () => Details::request($this->id)
+            fn() => Details::request($this->id)
                 ->language($locale)
                 //->append(...$append)
                 ->send()
@@ -332,7 +344,7 @@ class Tv extends Model
     {
         $ids = Recommendations::request($this->id)
             ->cursor()
-            ->when($limit, fn (LazyCollection $collection) => $collection->take($limit))
+            ->when($limit, fn(LazyCollection $collection) => $collection->take($limit))
             ->pluck('id');
 
         return static::query()->findMany($ids);
@@ -342,7 +354,7 @@ class Tv extends Model
     {
         $ids = Similars::request($this->id)
             ->cursor()
-            ->when($limit, fn (LazyCollection $collection) => $collection->take($limit))
+            ->when($limit, fn(LazyCollection $collection) => $collection->take($limit))
             ->pluck('id');
 
         return static::query()->findMany($ids);

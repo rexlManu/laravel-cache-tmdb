@@ -8,6 +8,9 @@ use Astrotomic\Tmdb\Images\Backdrop;
 use Astrotomic\Tmdb\Images\Poster;
 use Astrotomic\Tmdb\Models\Concerns\HasTranslations;
 use Astrotomic\Tmdb\Requests\Collection\Details;
+use Astrotomic\Tmdb\Requests\Search\SearchCollection;
+use Astrotomic\Tmdb\Requests\Search\SearchPerson;
+use Illuminate\Support\LazyCollection;
 
 /**
  * @property int $id
@@ -46,6 +49,17 @@ class Collection extends Model
         'poster_path',
     ];
 
+
+    public static function search(string $query, ?int $limit, bool $includeAdult = false, string $region = null)
+    {
+        $ids = (new SearchCollection(query: $query, includeAdult: $includeAdult, region: $region))
+            ->cursor()
+            ->when($limit, fn(LazyCollection $collection) => $collection->take($limit))
+            ->pluck('id');
+
+        return static::query()->findMany($ids);
+    }
+
     public function movies(): HasManyMovies
     {
         /** @var \Astrotomic\Tmdb\Models\Movie $instance */
@@ -78,7 +92,7 @@ class Collection extends Model
     public function updateFromTmdb(?string $locale = null, array $with = []): bool
     {
         $data = rescue(
-            fn () =>Details::request($this->id)
+            fn() => Details::request($this->id)
                 ->language($locale)
                 ->send()
                 ->json()

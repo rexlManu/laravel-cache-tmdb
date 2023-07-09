@@ -8,6 +8,7 @@ use Astrotomic\Tmdb\Images\Poster;
 use Astrotomic\Tmdb\Models\Concerns\HasTranslations;
 use Astrotomic\Tmdb\Requests\Person\Details;
 use Astrotomic\Tmdb\Requests\Person\Trending;
+use Astrotomic\Tmdb\Requests\Search\SearchPerson;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\LazyCollection;
@@ -74,11 +75,21 @@ class Person extends Model
         'biography',
     ];
 
+    public static function search(string $query, ?int $limit, bool $includeAdult = false)
+    {
+        $ids = (new SearchPerson(query: $query, includeAdult: $includeAdult))
+            ->cursor()
+            ->when($limit, fn(LazyCollection $collection) => $collection->take($limit))
+            ->pluck('id');
+
+        return static::query()->findMany($ids);
+    }
+
     public static function trending(?int $limit, string $window = 'day'): EloquentCollection
     {
         $ids = Trending::request(window: $window)
             ->cursor()
-            ->when($limit, fn (LazyCollection $collection) => $collection->take($limit))
+            ->when($limit, fn(LazyCollection $collection) => $collection->take($limit))
             ->pluck('id');
 
         return static::query()->findMany($ids);
@@ -128,7 +139,7 @@ class Person extends Model
     public function updateFromTmdb(?string $locale = null, array $with = []): bool
     {
         $append = collect($with)
-            ->map(fn (string $relation) => match ($relation) {
+            ->map(fn(string $relation) => match ($relation) {
                 'movie_credits' => Details::APPEND_MOVIE_CREDITS,
                 default => null,
             })
@@ -138,7 +149,7 @@ class Person extends Model
             ->all();
 
         $data = rescue(
-            fn () => Details::request($this->id)
+            fn() => Details::request($this->id)
                 ->language($locale)
                 ->append(...$append)
                 ->send()
